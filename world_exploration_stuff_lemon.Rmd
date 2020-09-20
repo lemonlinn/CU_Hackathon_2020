@@ -162,12 +162,12 @@ ggsurvplot(km_fit)
 
 ```{r}
 #cox <- coxph(formula = Surv(timediff, survive) ~ new_cases + rezchange + vaxinvest + test, data = new_y)
-cox <- coxph(formula = Surv(timediff, survive) ~ avg_new_case + avg_healthcare + avg_vaccine + test + stringency, data = new_y)
+cox <- coxph(formula = Surv(timediff, survive) ~ avg_new_case + avg_healthcare + avg_vaccine + test + stringency + rezchange, data = new_y)
 #summary(cox)
 #ggsurvplot(survfit(Surv(timediff, survive) ~ test, data = new_y))
 library(knitr)
 broom::tidy(
-  coxph(Surv(timediff, survive)~avg_new_case+stringency+test+avg_healthcare+avg_vaccine, data = new_y), 
+  coxph(Surv(timediff, survive)~avg_new_case+stringency+test+avg_healthcare+avg_vaccine+rezchange, data = new_y), 
   exp = TRUE
   ) %>% 
   kable()
