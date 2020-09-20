@@ -1,0 +1,40 @@
+With covid19cases as(
+SELECT a.iso_3166_1_alpha_3, a.iso_3166_1_alpha_2,a.date, country_name, a.new_confirmed, new_deceased, new_recovered,new_tested ,latitude,longitude,a.cumulative_confirmed,cumulative_deceased, cumulative_recovered,cumulative_tested
+FROM `bigquery-public-data.covid19_open_data.covid19_open_data` as a
+where a.aggregation_level = 0),
+
+policytracker as (
+SELECT Distinct alpha_3_code, date as ptdate, avg(stringency_index) as stringency_index, avg(cast(school_closing as Numeric) )as school_closing, avg(cast(testing_policy as Numeric)) as testing_policy, avg(cast(contact_tracing as Numeric)) as contact_tracing, avg(cast(emergency_healthcare_investment as Numeric)) as emergency_healthcare_investment, avg(cast(vaccine_investment as Numeric)) as vaccine_investment
+
+from `bigquery-public-data.covid19_govt_response.oxford_policy_tracker`
+where school_closing is not null
+group by alpha_3_code, ptdate
+order by alpha_3_code, date
+),
+
+mobility as ( 
+select country_region_code, date as mobilitydate, avg(retail_and_recreation_percent_change_from_baseline) as retail_and_recreation_percent_change_from_baseline  , avg(grocery_and_pharmacy_percent_change_from_baseline) as grocery_and_pharmacy_percent_change_from_baseline,
+avg(parks_percent_change_from_baseline) as parks_percent_change_from_baseline, avg(transit_stations_percent_change_from_baseline) as transit_stations_percent_change_from_baseline, avg(workplaces_percent_change_from_baseline) as workplaces_percent_change_from_baseline, avg(residential_percent_change_from_baseline) as residential_percent_change_from_baseline
+
+from `bigquery-public-data.covid19_google_mobility.mobility_report`
+#where country_region_code = "US"
+group by country_region_code, date
+),
+
+population as (
+select country_code, year, midyear_population
+from `bigquery-public-data.census_bureau_international.midyear_population`
+where year = 2020
+)
+
+Select * 
+from covid19cases
+right join policytracker
+  on covid19cases.iso_3166_1_alpha_3 = policytracker.alpha_3_code
+  and covid19cases.date = policytracker.ptdate
+left  join mobility
+  on covid19cases.iso_3166_1_alpha_2 = mobility.country_region_code
+  and covid19cases.date = mobility.mobilitydate
+left join population
+  on covid19cases.iso_3166_1_alpha_2 = population.country_code
+order by country_name, date
