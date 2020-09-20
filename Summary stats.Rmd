@@ -1,0 +1,165 @@
+---
+title: "Summary stats"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(tidyverse)
+library(DT)
+library(leaflet)
+library(ggthemes)
+library(maps)
+library(mapproj)
+library(tigris) 
+```
+
+```{r}
+covid_df <- read_csv("total_data_real_final_version.csv")
+covid_states <- read_csv("bq-results-20200919-221703-44o64hvfk23a.csv")
+
+```
+
+
+```{r}
+#shapefiles
+map <- worldMapEnv
+states <- map_data("state")
+```
+
+# US
+
+```{r}
+covid_states <- covid_states %>%
+  select(-c(statesympton, datesympton, state_name, state_fips_code, date)) %>%
+  group_by(state) %>%
+  na.omit() %>%
+  summarize_all(mean)
+```
+
+```{r}
+states_merged <- geo_join(states, covid_states, "STUSPS", "state") 
+pal <- colorNumeric("plasma", domain = states_merged$residential_percent_change_from_baseline)
+```
+
+```{r}
+leaflet(states_merged) %>%
+  setView(-98.483330, 38.712046, zoom = 4) %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(fillColor = ~pal(states_merged_18_19$Number.of.Bills.State), 
+              weight = 0.5, 
+              opacity = 1, 
+              color = "black",
+              dashArray = "1",
+              fillOpacity = 1, 
+              smoothFactor = 0.2, 
+              highlight = highlightOptions(weight = 5, 
+                                           color = "white",
+                                           dashArray = "",
+                                           bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"),
+                                          textsize = "15px", 
+                                          direction = "auto"))
+```
+
+```{r, fig.width = 10, fig.height = 10}
+covid_states %>%
+  ggplot() +
+  aes(y=deaths, x = state, fill = state) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal()
+
+
+```
+
+
+```{r, fig.width = 10, fig.height = 10}
+covid_states %>%
+  na.omit() %>%
+  ggplot() +
+  aes(y = parks_percent_change_from_baseline, x = state, order = state, 
+      fill = parks_percent_change_from_baseline > 0) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "state", y = "Park % Change")+
+  theme_minimal()+
+  guides(fill = FALSE)
+```
+
+
+```{r, fig.width = 10, fig.height = 10}
+covid_states %>%
+  ggplot() +
+  aes(y = transit_stations_percent_change_from_baseline, x = state, order = state, 
+      fill = transit_stations_percent_change_from_baseline > 0) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "state", y = "Transit % Change")+
+  theme_minimal()+
+  guides(fill = FALSE)
+```
+
+
+```{r, fig.width = 10, fig.height = 10}
+covid_states %>%
+  na.omit() %>%
+  ggplot() +
+  aes(y = residential_percent_change_from_baseline, x = state, 
+      fill = residential_percent_change_from_baseline >0) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "state", y = "Residential % Change")+
+  theme_minimal()+
+  guides(fill = FALSE)
+```
+
+```{r, fig.width = 10, fig.height = 10}
+covid_states %>%
+  na.omit() %>%
+  ggplot() +
+  aes(y = workplaces_percent_change_from_baseline, x = state,
+      fill = workplaces_percent_change_from_baseline > 0) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "state", y = "Workplace % Change")+
+  theme_minimal()+
+  guides(fill = FALSE)
+```
+
+```{r, fig.width = 10, fig.height = 10}
+grocery <- covid_states %>%
+  na.omit() %>%
+  ggplot() +
+  aes(y = grocery_and_pharmacy_percent_change_from_baseline, x = state,
+      fill = grocery_and_pharmacy_percent_change_from_baseline > 0) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "state", y = "Grocery % Change")+
+  theme_minimal()+
+  guides(fill = FALSE)
+grocery
+```
+
+```{r, fig.width = 10, fig.height = 10}
+covid_states %>%
+  na.omit() %>%
+  ggplot() +
+  aes(y = retail_and_recreation_percent_change_from_baseline, x = state,
+      fill = retail_and_recreation_percent_change_from_baseline > 0) + 
+  geom_bar(stat = "identity") +  
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "state", y = "retail % Change")+
+  theme_minimal()+
+  guides(fill = FALSE)
+
+```
+
+
