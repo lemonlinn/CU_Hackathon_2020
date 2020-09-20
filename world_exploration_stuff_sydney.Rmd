@@ -1,0 +1,135 @@
+---
+title: "world_covid_exploration"
+author: "Lemon Reimer"
+date: "9/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+d = read.csv('total data real final version.csv')
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+d['mobility'] = rowMeans(d[c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'residential_percent_change_from_baseline', 'workplaces_percent_change_from_baseline')], na.rm = T)
+```
+
+
+```{r}
+myfunc <- function(d){
+  timelist = c()
+  for (x in unique(d$alpha_3_code)){
+    d_sub = subset(d, alpha_3_code == x, !is.na(school_closing))
+    print(nrow(d_sub))
+    mind = min(as.Date(d_sub$date))
+    maxd = max(as.Date(d_sub$date))
+    if (nrow(d_sub$school_closing) > 0){
+      for (i in 1:nrow(d_sub$school_closing)-1){
+        if (d_sub$school_closing[i] > 0 & d_sub$school_closing[i+1] == 0){
+          maxd = as.Date(d_sub$date[i+1])
+        }
+      }
+    }
+    timediff = maxd - mind
+    timelist = c(timelist, timediff)
+  }
+  return(timelist)
+}
+```
+
+```{r}
+# filter country
+
+# filter school_closing != 0, get minimum date
+# filter school closing != 0, get maximum date + 1
+
+# last day + 1 (time to event in days)
+
+myfunc <- function(df){
+  timediff = c()
+  survive = c()
+  country = c()
+  for (x in unique(df$alpha_3_code)){
+    country = c(country, x)
+    d_sub = subset(df, alpha_3_code == x)
+    d_sub_sub = subset(d_sub, school_closing != 0, !is.na(school_closing))
+    maxd = max(as.Date(d_sub$date))
+    if (nrow(d_sub_sub) == 0) {
+      survive = c(survive, NA)
+      timediff = c(timediff, NA)
+    } else {
+      mind = min(as.Date(d_sub_sub$date))
+      midd = max(as.Date(d_sub_sub$date))
+      tmptime = difftime(midd, mind, units = c("days"))
+      timediff = c(timediff, tmptime)
+      if (maxd == midd){
+        survive = c(survive, 0) # never opened
+      } else {
+        survive = c(survive, 1)
+      }
+    }
+    }
+  ans = data.frame("country" = country, "timediff" = timediff, "survive" = survive)
+  return(ans)
+}
+```
+
+```{r}
+y = myfunc(d)
+y$alpha_3_code <- y$country
+```
+
+```{r}
+d_clean <- d %>%
+  select(alpha_3_code, country_name, latitude, longitude, date, testing_policy, contact_tracing, new_confirmed, emergency_healthcare_investment, vaccine_investment) %>%
+  group_by(alpha_3_code, country_name, latitude, longitude) %>%
+  summarise(#avg_contact_tracing = round(mean(contact_tracing, na.rm = TRUE), digits = 2),
+            #avg_testing_policy = round(mean(testing_policy, na.rm = TRUE), digits = 2),
+            avg_new_case = round(mean(new_confirmed, na.rm = TRUE),digits = 2), 
+            avg_healthcare = round(mean(emergency_healthcare_investment, na.rm = TRUE), digits = 2),
+            avg_vaccine = round(mean(vaccine_investment, na.rm = TRUE), digits = 2))
+```
+
+```{r}
+serious_days <- d %>%
+  select(alpha_3_code, country_name, testing_policy) %>%
+  filter(testing_policy == 3) %>%
+  group_by(alpha_3_code) %>%
+  count(rigorous_testing_days = n())
+```
+
+```{r}
+d_final <- left_join(d_clean, y, by = c("alpha_3_code")) %>% select(-country) %>%
+  left_join(., serious_days, by = c("alpha_3_code"))
+```
+
+
+```{r}
+library(survival)
+library(survminer)
+```
+
+
+```{r}
+cox_fit <- coxph(Surv(timediff, survive)~avg_testing_policy+avg_healthcare+avg_new_case+avg_contact_tracing+avg_vaccine, data = d_final)
+summary(cox_fit)
+
+```
+
+```{r}
+ggsurvplot(survfit(cox_fit), data = d_final, color = "#2E9FDF",
+           ggtheme = theme_minimal())
+```
+
+
+
+
+
