@@ -1,0 +1,175 @@
+---
+title: "world_covid_exploration"
+author: "Lemon Reimer"
+date: "9/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+d = read.csv('total data real final version.csv')
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(survival)
+library(survminer)
+library(ROSE)
+```
+
+```{r}
+d['mobility'] = rowMeans(d[c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'residential_percent_change_from_baseline', 'workplaces_percent_change_from_baseline')], na.rm = T)
+```
+
+```{r}
+l = d %>%
+  group_by(alpha_3_code) %>%
+  summarize_at(vars(mobility, new_confirmed, stringency_index), funs(mean(., na.rm = T))) %>%
+  filter(new_confirmed < 10000) %>%
+  lm(data = ., formula = mobility~new_confirmed + stringency_index)
+summary(l)
+```
+
+```{r}
+d %>%
+  group_by(iso_3166_1_alpha_2) %>%
+  summarize_at(vars(stringency_index, new_confirmed, mobility), funs(mean(., na.rm = T))) %>%
+  #filter(new_confirmed < 10000) %>%
+  ggplot(., aes(x=stringency_index, y=mobility, label=iso_3166_1_alpha_2)) + 
+  #geom_point(alpha = 0.5) + 
+  geom_text(check_overlap = T) + 
+  geom_smooth(method='lm', formula=y~x)
+```
+
+```{r}
+myfunc <- function(d){
+  timelist = c()
+  for (x in unique(d$alpha_3_code)){
+    d_sub = subset(d, alpha_3_code == x, !is.na(school_closing))
+    print(nrow(d_sub))
+    mind = min(as.Date(d_sub$date))
+    maxd = max(as.Date(d_sub$date))
+    if (nrow(d_sub$school_closing) > 0){
+      for (i in 1:nrow(d_sub$school_closing)-1){
+        if (d_sub$school_closing[i] > 0 & d_sub$school_closing[i+1] == 0){
+          maxd = as.Date(d_sub$date[i+1])
+        }
+      }
+    }
+    timediff = maxd - mind
+    timelist = c(timelist, timediff)
+  }
+  return(timelist)
+}
+```
+
+```{r}
+# filter country
+
+# filter school_closing != 0, get minimum date
+# filter school closing != 0, get maximum date + 1
+
+# last day + 1 (time to event in days)
+
+myfunc <- function(df){
+  timediff = c()
+  survive = c()
+  country = c()
+  for (x in unique(df$alpha_3_code)){
+    country = c(country, x)
+    d_sub = subset(df, alpha_3_code == x)
+    d_sub_sub = subset(d_sub, school_closing != 0, !is.na(school_closing))
+    maxd = max(as.Date(d_sub$date))
+    if (nrow(d_sub_sub) == 0) {
+      survive = c(survive, NA)
+      timediff = c(timediff, NA)
+    } else {
+      mind = min(as.Date(d_sub_sub$date))
+      midd = max(as.Date(d_sub_sub$date))
+      tmptime = difftime(midd, mind, units = c("days"))
+      timediff = c(timediff, tmptime)
+      if (maxd == midd){
+        survive = c(survive, 0) # never opened
+      } else {
+        survive = c(survive, 1)
+      }
+    }
+    }
+  ans = data.frame("country" = country, "timediff" = timediff, "survive" = survive)
+  return(ans)
+}
+```
+
+```{r}
+y = myfunc(d)
+```
+
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+
+```{r}
+tmp_y <- d %>% 
+  group_by(alpha_3_code) %>%
+  summarize('new_cases' = mean(new_confirmed, na.rm = T), 'rezchange' = mean(residential_percent_change_from_baseline, na.rm = T), 'vaxinvest' = mean(vaccine_investment, na.rm = T), 'test' = getmode(round(testing_policy)))
+y['new_cases'] = tmp_y$new_cases
+y['rezchange'] = tmp_y$rezchange
+y['vaxinvest'] = tmp_y$vaxinvest
+y['test'] = tmp_y$test
+```
+
+```{r}
+y$alpha_3_code <- y$country
+
+d_clean <- d %>%
+  select(alpha_3_code, date, new_confirmed, emergency_healthcare_investment, vaccine_investment, testing_policy, stringency_index) %>%
+  group_by(alpha_3_code) %>%
+  summarise(avg_new_case = round(mean(new_confirmed, na.rm = TRUE),digits = 2), 
+            avg_healthcare = round(mean(emergency_healthcare_investment, na.rm = TRUE), digits = 2),
+            avg_vaccine = round(mean(vaccine_investment, na.rm = TRUE), digits = 2),
+            testing_policy = round(getmode(testing_policy)),
+            stringency = median(stringency_index)) %>%
+  ungroup()
+
+d_final <- left_join(d_clean, y, by = c("alpha_3_code")) %>% select(-country)
+d_final2 <- na.omit(d_final)
+## OVERSAMPLE
+#library(ROSE)
+#new_data2 <- ovun.sample(survive ~., data = d_final2, method = 'over', p = 0.5, seed = 1)$data
+#new_data2$testing_policy <- factor(new_data2$testing_pol)
+```
+
+```{r}
+table(y$survive)
+#new_y <- ovun.sample(survive ~., data = y, method = 'both', p = 0.5, seed = 1)$data
+new_y <- ovun.sample(survive ~., data = d_final2, method = 'over', p = 0.5, seed = 1)$data
+table(new_y$survive)
+```
+
+```{r}
+km <- with(new_y, Surv(timediff, survive))
+km_fit <- survfit(Surv(timediff, survive) ~ 1, data = new_y)
+#plot(km_fit, xlab = 'time')
+ggsurvplot(km_fit)
+```
+
+```{r}
+#cox <- coxph(formula = Surv(timediff, survive) ~ new_cases + rezchange + vaxinvest + test, data = new_y)
+cox <- coxph(formula = Surv(timediff, survive) ~ avg_new_case + avg_healthcare + avg_vaccine + test + stringency, data = new_y)
+#summary(cox)
+#ggsurvplot(survfit(Surv(timediff, survive) ~ test, data = new_y))
+library(knitr)
+broom::tidy(
+  coxph(Surv(timediff, survive)~avg_new_case+stringency+test+avg_healthcare+avg_vaccine, data = new_y), 
+  exp = TRUE
+  ) %>% 
+  kable()
+```
+

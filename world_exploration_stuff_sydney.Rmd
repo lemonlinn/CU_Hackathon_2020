@@ -91,8 +91,8 @@ y$alpha_3_code <- y$country
 d_clean <- d %>%
   select(alpha_3_code, country_name, latitude, longitude, date, testing_policy, contact_tracing, new_confirmed, emergency_healthcare_investment, vaccine_investment) %>%
   group_by(alpha_3_code, country_name, latitude, longitude) %>%
-  summarise(#avg_contact_tracing = round(mean(contact_tracing, na.rm = TRUE), digits = 2),
-            #avg_testing_policy = round(mean(testing_policy, na.rm = TRUE), digits = 2),
+  summarise(avg_contact_tracing = round(mean(contact_tracing, na.rm = TRUE), digits = 2),
+            avg_testing_policy = round(mean(testing_policy, na.rm = TRUE), digits = 2),
             avg_new_case = round(mean(new_confirmed, na.rm = TRUE),digits = 2), 
             avg_healthcare = round(mean(emergency_healthcare_investment, na.rm = TRUE), digits = 2),
             avg_vaccine = round(mean(vaccine_investment, na.rm = TRUE), digits = 2))
