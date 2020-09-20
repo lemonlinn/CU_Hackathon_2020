@@ -1,0 +1,38 @@
+---
+title: "Summary stats"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(tidyverse)
+library(DT)
+```
+
+```{r}
+covid_df <- read_csv("bq-results-20200919-221703-44o64hvfk23a.csv")
+```
+
+```{r}
+covid_df <- covid_df %>%
+  select(-c(statesympton, datesympton, state_name, state_fips_code))
+```
+
+```{r}
+covid_df2 <- covid_df %>% 
+  group_by(state) %>%
+  select(-date) %>%
+  na.omit() %>%
+  summarize_all(mean)
+```
+
+```{r}
+summary(covid_df)
+```
+
+
+```{r}
+datatable(covid_df2)
+```
+
