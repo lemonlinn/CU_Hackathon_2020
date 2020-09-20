@@ -1,0 +1,111 @@
+---
+title: "world_covid_exploration"
+author: "Lemon Reimer"
+date: "9/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+d = read.csv('total data real final version.csv')
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+d['mobility'] = rowMeans(d[c('retail_and_recreation_percent_change_from_baseline', 'grocery_and_pharmacy_percent_change_from_baseline', 'parks_percent_change_from_baseline', 'transit_stations_percent_change_from_baseline', 'residential_percent_change_from_baseline', 'workplaces_percent_change_from_baseline')], na.rm = T)
+```
+
+```{r}
+l = d %>%
+  group_by(alpha_3_code) %>%
+  summarize_at(vars(mobility, new_confirmed, stringency_index), funs(mean(., na.rm = T))) %>%
+  filter(new_confirmed < 10000) %>%
+  lm(data = ., formula = mobility~new_confirmed + stringency_index)
+summary(l)
+```
+
+```{r}
+d %>%
+  group_by(iso_3166_1_alpha_2) %>%
+  summarize_at(vars(stringency_index, new_confirmed, mobility), funs(mean(., na.rm = T))) %>%
+  #filter(new_confirmed < 10000) %>%
+  ggplot(., aes(x=stringency_index, y=mobility, label=iso_3166_1_alpha_2)) + 
+  #geom_point(alpha = 0.5) + 
+  geom_text(check_overlap = T) + 
+  geom_smooth(method='lm', formula=y~x)
+```
+
+```{r}
+myfunc <- function(d){
+  timelist = c()
+  for (x in unique(d$alpha_3_code)){
+    d_sub = subset(d, alpha_3_code == x, !is.na(school_closing))
+    print(nrow(d_sub))
+    mind = min(as.Date(d_sub$date))
+    maxd = max(as.Date(d_sub$date))
+    if (nrow(d_sub$school_closing) > 0){
+      for (i in 1:nrow(d_sub$school_closing)-1){
+        if (d_sub$school_closing[i] > 0 & d_sub$school_closing[i+1] == 0){
+          maxd = as.Date(d_sub$date[i+1])
+        }
+      }
+    }
+    timediff = maxd - mind
+    timelist = c(timelist, timediff)
+  }
+  return(timelist)
+}
+```
+
+```{r}
+# filter country
+
+# filter school_closing != 0, get minimum date
+# filter school closing != 0, get maximum date + 1
+
+# last day + 1 (time to event in days)
+
+myfunc <- function(df){
+  timediff = c()
+  survive = c()
+  country = c()
+  for (x in unique(df$alpha_3_code)){
+    country = c(country, x)
+    d_sub = subset(df, alpha_3_code == x)
+    d_sub_sub = subset(d_sub, school_closing != 0, !is.na(school_closing))
+    maxd = max(as.Date(d_sub$date))
+    if (nrow(d_sub_sub) == 0) {
+      survive = c(survive, NA)
+      timediff = c(timediff, NA)
+    } else {
+      mind = min(as.Date(d_sub_sub$date))
+      midd = max(as.Date(d_sub_sub$date))
+      tmptime = difftime(midd, mind, units = c("days"))
+      timediff = c(timediff, tmptime)
+      if (maxd == midd){
+        survive = c(survive, 0) # never opened
+      } else {
+        survive = c(survive, 1)
+      }
+    }
+    }
+  ans = data.frame("country" = country, "timediff" = timediff, "survive" = survive)
+  return(ans)
+}
+```
+
+```{r}
+y = myfunc(d)
+```
+
+```{r}
+d_sub = subset(d, alpha_3_code == 'EST', select = c(date, school_closing))
+```
+
