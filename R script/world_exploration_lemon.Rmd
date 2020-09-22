@@ -7,10 +7,11 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = dirname(getwd()))
 ```
 
 ```{r}
-d = read.csv('total data real final version.csv')
+d = read.csv('./data/total data real final version.csv')
 ```
 
 ```{r}
