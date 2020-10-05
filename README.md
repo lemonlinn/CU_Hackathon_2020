@@ -1,12 +1,19 @@
 # CU_Hackathon_2020
-Collaborative repository for Columbia University's 6th Annual Data Science Society Hack-A-Thon, which we won first place in!
+This repository holds the coding for our hackathon submission, as well as the final presentation. We gave insights into COVID-19 school closings and reopenings internationally, as well as how COVID-19 has changed different types of mobility within America at the state level. Our entry won first place for Columbia University's 6th Annual Data Science Society Hack-A-Thon (2020).
 
 # Brief Findings
-![A](/images/all_bars.png)
-![B](/images/panic_shopping.png)
-![C](/images/cases.png)
-![D](/images/closing_dates.png)
-![E](/images/stringency.png)
-![F](/images/survival.png)
-![G](/images/survival_testing.png)
-![H](/images/cox.png)
+![A](Images/all_bars.png)
+
+![B](Images/panic_shopping.png)
+
+![C](Images/cases.png)
+
+![D](Images/closing_dates.png)
+
+![E](Images/stringency.png)
+
+![F](Images/survival.png)
+
+![G](Images/survival_testing.png)
+
+![H](Images/cox.png)
